@@ -75,5 +75,17 @@
             "linux":    { "command": "xdg-open      \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
             "osx":      { "command": "open          \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
         },
+        {
+            "label":    "open github",
+            "windows":  { "command": "start \"\"    \"https://github.com/MaulingMonkey/vfs-zip" },
+            "linux":    { "command": "xdg-open      \"https://github.com/MaulingMonkey/vfs-zip" },
+            "osx":      { "command": "open          \"https://github.com/MaulingMonkey/vfs-zip" },
+        },
+        {
+            "label":    "open docs.rs",
+            "windows":  { "command": "start \"\"    \"https://docs.rs/vfs-zip" },
+            "linux":    { "command": "xdg-open      \"https://docs.rs/vfs-zip" },
+            "osx":      { "command": "open          \"https://docs.rs/vfs-zip" },
+        },
     ],
 }
