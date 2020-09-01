@@ -45,9 +45,10 @@ impl<IO: Read + Seek + Send> ZipReadOnly<IO> {
             let entry = archive.by_index(i);
             if ignore_file_errors && entry.is_err() { continue; }
             let entry = entry.map_err(Error)?;
-            let mut abs = entry.name().trim_end_matches(is_path_separator);
-            if abs.contains("\\")           { if ignore_file_errors { continue } return Err(Error::unsupported("vfs-zip doesn't support zip archives containing backslashes in paths")); }
+            let abs = entry.name();
+            if abs.contains('\\')           { if ignore_file_errors { continue } return Err(Error::unsupported("vfs-zip doesn't support zip archives containing backslashes in paths")); }
             if abs.contains("//")           { if ignore_file_errors { continue } return Err(Error::unsupported("vfs-zip doesn't support zip archives containing 0-length directory names")); }
+            let mut abs = abs.trim_end_matches('/');
             if Path::new(abs).is_absolute() { if ignore_file_errors { continue } return Err(Error::unsupported("vfs-zip doesn't support zip archives containing absolute paths")); }
 
             if entry.is_file() {
@@ -56,7 +57,7 @@ impl<IO: Read + Seek + Send> ZipReadOnly<IO> {
                 za.dirs.entry(abs.into()).or_default();
             }
 
-            while let Some(slash) = abs.rfind(is_path_separator) {
+            while let Some(slash) = abs.rfind('/') {
                 let dir_name = &abs[..slash];
                 let leaf_name = &abs[slash+1..];
 
@@ -73,8 +74,4 @@ impl<IO: Read + Seek + Send> ZipReadOnly<IO> {
         std::mem::drop(archive); // unlock
         Ok(za)
     }
-}
-
-fn is_path_separator(ch: char) -> bool {
-    ch == '/' || ch == '\\'
 }

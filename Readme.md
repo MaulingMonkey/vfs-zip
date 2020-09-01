@@ -21,11 +21,14 @@ Caveats:
 
 <h2 name="features">Features</h2>
 
-| Feature   | Description |
-| --------- | ----------- |
-| default   | 
-| vfs04     | [vfs] = "[0.4.x](http://docs.rs/vfs/0.4)" interop
-
+| Feature       | Description |
+| ------------- | ----------- |
+| **default**   |
+| vfs04         | [vfs] = "[0.4.x](http://docs.rs/vfs/0.4)" interop
+| zip-deflate   | "zip/deflate" (de)compression support
+| zip-bzip2     | "zip/bzip2" (de)compression support
+| **(opt-in)**  |
+| zip-time      | "zip/time" write timestamps when creating zip archives
 
 
 

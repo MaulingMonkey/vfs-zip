@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name":                     "example: copy-early-vfs-zip",
+            "type":                     "cppvsdbg",
+            "request":                  "launch",
+            "internalConsoleOptions":   "openOnSessionStart",
+            "enableDebugHeap":          true,
+            "preLaunchTask":            "cargo build --frozen --example copy-early-vfs-zip",
+            "program":                  "${workspaceFolder}/target/debug/examples/copy-early-vfs-zip.exe",
+            "cwd":                      "${workspaceFolder}",
+            "args":                     ["tpe"],
+            "environment": [
+                { "name": "RUST_BACKTRACE", "value": "1" },
+            ],
+        },
+    ]
+}

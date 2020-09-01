@@ -4,10 +4,10 @@ use std::io::Write;
 
 impl<IO: Read + Seek + Send + 'static> ZipReadOnly<IO> {
     fn normalize_file<'s>(&self, orig: &'s str) -> VfsResult<&'s str> {
-        if orig.contains("\\") || orig.ends_with("/") {
+        if orig.contains('\\') || orig.ends_with('/') {
             return Err(VfsError::InvalidPath { path: orig.into() }); // Invalid path for file
         }
-        let path = if orig.starts_with("/") { &orig[1..] } else { orig };
+        let path = if orig.starts_with('/') { &orig[1..] } else { orig };
         if path.split('/').any(|c| c == "" || c == "." || c == "..") {
             return Err(VfsError::InvalidPath { path: orig.into() });
         }
@@ -17,7 +17,7 @@ impl<IO: Read + Seek + Send + 'static> ZipReadOnly<IO> {
     fn normalize_path_dir<'s>(&self, orig: &'s str) -> VfsResult<(&'s str, bool)> {
         if orig == "" || orig == "/" {
             Ok(("", true)) // root dir
-        } else if orig.ends_with("/") {
+        } else if orig.ends_with('/') {
             Ok((self.normalize_file(&orig[..orig.len()-1])?, true))
         } else {
             Ok((self.normalize_file(orig)?, false))
@@ -57,7 +57,6 @@ impl<IO: Read + Seek + Send + 'static> FileSystem for ZipReadOnly<IO> {
         if let Some(i) = self.files.get(path).filter(|_| !dir) {
             Ok(VfsMetadata { file_type: VfsFileType::File, len: self.archive.lock().unwrap().by_index(*i).map(|f| f.size()).unwrap_or(0) })
         } else if let Some(_) = self.dirs.get(path) {
-            eprintln!("Yes I found {:?} OK damnit what gives", dir);
             Ok(VfsMetadata { file_type: VfsFileType::Directory, len: 0 })
         } else {
             Err(VfsError::FileNotFound { path: orig.into() })
@@ -69,10 +68,10 @@ impl<IO: Read + Seek + Send + 'static> FileSystem for ZipReadOnly<IO> {
             Ok(pd)  => pd,
             Err(_)  => return false, // XXX
         };
-        (!dir && self.files.contains_key(path)) || self.dirs.contains_key(path.trim_end_matches(is_path_separator))
+        (!dir && self.files.contains_key(path)) || self.dirs.contains_key(path.trim_end_matches('/'))
     }
 
-    // these all involve writing, which zip::read::ZipReadOnly doesn't support
+    // these all involve writing, which zip::read::ZipArchive doesn't support
     fn create_dir   (&self, _path: &str)            -> VfsResult<()>                { Err(VfsError::NotSupported) }
     fn create_file  (&self, _path: &str)            -> VfsResult<Box<dyn Write>>    { Err(VfsError::NotSupported) }
     fn append_file  (&self, _path: &str)            -> VfsResult<Box<dyn Write>>    { Err(VfsError::NotSupported) }

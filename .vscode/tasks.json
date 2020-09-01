@@ -66,6 +66,10 @@
 
 
         {
+            "label":    "cargo build --frozen --example copy-early-vfs-zip",
+            "dependsOn":"cargo +1.34.0 fetch",
+        },
+        {
             "label":    "open docs",
             "windows":  { "command": "start \"\"    \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
             "linux":    { "command": "xdg-open      \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
