@@ -1,4 +1,11 @@
-[vfs]-[zip]: Virtual FileSystem abstractions for ZIP files
+# [vfs]-[zip]: Virtual FileSystem abstractions for ZIP files
+
+<!-- [![Build status](https://ci.appveyor.com/api/projects/status/nyvlrelifcyjc1l1?svg=true)](https://ci.appveyor.com/project/MaulingMonkey/vfs-zip) -->
+[![GitHub](https://img.shields.io/github/stars/MaulingMonkey/vfs-zip.svg?label=GitHub&style=social)](https://github.com/MaulingMonkey/vfs-zip)
+[![%23![forbid(unsafe_code)]](https://img.shields.io/github/search/MaulingMonkey/vfs-zip/unsafe%2bextension%3Ars?color=green&label=%23![forbid(unsafe_code)])](https://github.com/MaulingMonkey/vfs-zip/search?q=forbid%28unsafe_code%29+extension%3Ars)
+[![rust: 1.34.0+](https://img.shields.io/badge/rust-1.34.0%2B-yellow.svg)](https://gist.github.com/MaulingMonkey/c81a9f18811079f19326dac4daa5a359#minimum-supported-rust-versions-msrv)
+[![License](https://img.shields.io/crates/l/vfs-zip.svg)](https://github.com/MaulingMonkey/vfs-zip)
+<!-- [![dependency status](https://deps.rs/repo/github/MaulingMonkey/vfs-zip/status.svg)](https://deps.rs/repo/github/MaulingMonkey/vfs-zip) -->
 
 Currently this just bridges [vfs] and [zip].
 Alternate VFS abstractions may be added in the future.
@@ -17,6 +24,22 @@ Caveats:
 | default   | 
 | vfs04     | [vfs] = "[0.4.x](http://docs.rs/vfs/0.4)" interop
 
+
+
+
+<h2 name="unsafe-code">Unsafe Code</h2>
+
+Crate uses <code>[#![forbid(unsafe_code)]](https://github.com/MaulingMonkey/vfs-zip/search?q=forbid%28unsafe_code%29+extension%3Ars)</code>.
+However, indirect dependencies do contain some `unsafe` - including, but perhaps not limited to:
+
+| crate     | version |
+| --------- | ------- |
+| bzip2     | 0.3.3
+| crc32fast | 1.2.0
+| flat2     | 1.0.14
+| syn       | 1.0.39
+| time      | 0.1.44
+| winapi    | 0.3.9
 
 
 
