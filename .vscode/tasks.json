@@ -1,0 +1,75 @@
+{
+    "version": "2.0.0",
+    "problemMatcher": "$rustc",
+    "type": "shell",
+    "presentation": {
+        "clear": true,
+        "panel": "shared",
+        //"revealProblems": "onProblem",
+    },
+    "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+            //"RUST_BACKTRACE": "1",
+        },
+    },
+    "tasks": [
+        {
+            "label":        "build",
+            "dependsOrder": "sequence",
+            "dependsOn":    ["0", "1", "2"],
+            "group":        { "kind": "build", "isDefault": true }
+        },
+
+
+
+        { "label": "0", "dependsOn": ["cargo +1.34.0 fetch"], },
+        {
+            "label":            "cargo +1.34.0 fetch",
+            "command":          "cargo +1.34.0 fetch",
+            "presentation":     { "group": "0" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo build", "source": "cargo fetch" },
+        },
+
+
+
+        { "label": "1", "dependsOn": ["cargo +1.34.0 build --frozen --all-targets", "cargo +nightly doc --frozen --no-deps --release"], },
+        {
+            "label":            "cargo +1.34.0 build --frozen --all-targets",
+            "command":          "cargo +1.34.0 build --frozen --all-targets",
+            "presentation":     { "group": "1" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo build", "source": "cargo build" },
+        },
+        {
+            "label":            "cargo +nightly doc --frozen --no-deps --release",
+            "command":          "cargo +nightly doc --frozen --no-deps --release",
+            "presentation":     { "group": "1" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo doc", "source": "cargo doc" },
+        },
+
+
+
+        { "label": "2", "dependsOn": ["cargo +1.34.0 test --frozen", "cargo build --frozen --release --no-default-features"], },
+        {
+            "label":            "cargo +1.34.0 test --frozen",
+            "command":          "cargo +1.34.0 test --frozen",
+            "presentation":     { "group": "2" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo test", "source": "cargo test" },
+        },
+        {
+            "label":            "cargo build --frozen --release --no-default-features",
+            "command":          "cargo build --frozen --release --no-default-features",
+            "presentation":     { "group": "2" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo build --no-default-features", "source": "cargo build --no-default-features" },
+        },
+
+
+
+        {
+            "label":    "open docs",
+            "windows":  { "command": "start \"\"    \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
+            "linux":    { "command": "xdg-open      \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
+            "osx":      { "command": "open          \"${workspaceFolder}\\target\\doc\\vfs_zip\\index.html\"" },
+        },
+    ],
+}
