@@ -1,3 +1,6 @@
+// NOTE:  This file is excluded from Cargo.toml !
+// docs.rs instead configures this via [package.metadata.docs.rs]
+
 use std::process::Command;
 
 fn main() {
