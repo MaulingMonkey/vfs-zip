@@ -7,7 +7,7 @@
             "request":                  "launch",
             "internalConsoleOptions":   "openOnSessionStart",
             "enableDebugHeap":          true,
-            "preLaunchTask":            "cargo build --frozen --example copy-early-vfs-zip",
+            "preLaunchTask":            "cargo +1.34.0 build --frozen --example copy-early-vfs-zip",
             "program":                  "${workspaceFolder}/target/debug/examples/copy-early-vfs-zip.exe",
             "cwd":                      "${workspaceFolder}",
             "args":                     ["tpe"],
