@@ -43,11 +43,13 @@ impl<IO: Write + Seek + Send + 'static> FileSystem for ZipWriteOnly<IO> {
             imp.dirs.insert(path.into());
             return Ok(());
         }
+        #[allow(unreachable_patterns)] // zip 0.5.3 ..= 0.5.6 didn't have any extra cases
         match imp.writer.add_directory(path, FileOptions::default()) {
             Err(ZipError::FileNotFound)             => return Err(VfsError::FileNotFound { path: path.into() }),
             Err(ZipError::Io(e))                    => return Err(VfsError::IoError(e)),
             Err(ZipError::InvalidArchive(e))        => return Err(VfsError::IoError(io::Error::new(io::ErrorKind::InvalidData, e))),
-            Err(ZipError::UnsupportedArchive(e))    => return Err(VfsError::Other { message: e.into() }),
+            Err(ZipError::UnsupportedArchive(e))    => return Err(VfsError::IoError(io::Error::new(io::ErrorKind::InvalidData, e))),
+            Err(other)                              => return Err(VfsError::Other { message: other.to_string() }),
             Ok(())                                  => {},
         }
         imp.dirs.insert(path.into());
