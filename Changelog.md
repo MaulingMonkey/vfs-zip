@@ -1,3 +1,10 @@
+## 0.2.1
+
+*   Properly require zip 0.5.3 or higher (`is_dir`, `is_file`)
+*   Workaround breaking change in zip 0.5.7 ([mvdnes/zip-rs#193])
+
+[mvdnes/zip-rs#193]:  https://github.com/mvdnes/zip-rs/issues/193
+
 ## 0.2.0
 
 *   Introduced vfs_zip::[ZipWriteOnly](https://docs.rs/vfs-zip/0.2.0/vfs_zip/struct.ZipWriteOnly.html)
