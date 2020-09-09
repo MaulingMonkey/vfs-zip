@@ -17,7 +17,7 @@
         {
             "label":        "build",
             "dependsOrder": "sequence",
-            "dependsOn":    ["0", "1", "2"],
+            "dependsOn":    ["0", "0.5", "1", "2"],
             "group":        { "kind": "build", "isDefault": true }
         },
 
@@ -29,6 +29,18 @@
             "command":          "cargo +1.34.0 fetch",
             "presentation":     { "group": "0" },
             "problemMatcher":   { "base": "$rustc", "owner": "cargo build", "source": "cargo fetch" },
+        },
+
+
+
+        { "label": "0.5", "dependsOn": [
+            "cargo check --frozen --all-targets",
+        ]},
+        {
+            "label":            "cargo check --frozen --all-targets",
+            "command":          "cargo check --frozen --all-targets",
+            "presentation":     { "group": "0.5" },
+            "problemMatcher":   { "base": "$rustc", "owner": "cargo check", "source": "cargo check" },
         },
 
 
