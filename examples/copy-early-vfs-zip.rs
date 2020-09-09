@@ -3,7 +3,7 @@ use vfs_zip::*;
 use vfs04::*;
 
 fn main() {
-    create_dir_all("target/tmp").unwrap();;
+    create_dir_all("target/tmp").unwrap();
     let src = VfsPath::new(ZipReadOnly::new_strict(File::open("test/data/early-vfs-zip.zip").unwrap()).unwrap());
     let dst = VfsPath::new(ZipWriteOnly::new_weak(File::create("target/tmp/early-vfs-zip-copy.zip").unwrap()).unwrap());
     let copied = copy_dir_merge(&dst, &src).unwrap();

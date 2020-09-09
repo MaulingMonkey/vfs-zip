@@ -162,7 +162,7 @@ pub struct SeeklessFile(std::fs::File);
 
 #[cfg(unix)] impl ReadAt for SeeklessFile {
     fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> { self.0.read_at(buf, offset) }
-    fn read_exact_at(&self, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> { self.0.read_exact_at(buf, offset) }
+    fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> { self.0.read_exact_at(buf, offset) }
 }
 
 #[cfg(windows)] impl ReadAt for SeeklessFile {
