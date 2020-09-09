@@ -1,12 +1,12 @@
 # [vfs]-[zip]: Virtual FileSystem abstractions for ZIP files
 
-<!-- [![Build status](https://ci.appveyor.com/api/projects/status/nyvlrelifcyjc1l1?svg=true)](https://ci.appveyor.com/project/MaulingMonkey/vfs-zip) -->
 [![GitHub](https://img.shields.io/github/stars/MaulingMonkey/vfs-zip.svg?label=GitHub&style=social)](https://github.com/MaulingMonkey/vfs-zip)
 [![crates.io](https://img.shields.io/crates/v/vfs-zip.svg)](https://crates.io/crates/vfs-zip)
 [![docs.rs](https://docs.rs/vfs-zip/badge.svg)](https://docs.rs/vfs-zip)
 [![%23![forbid(unsafe_code)]](https://img.shields.io/github/search/MaulingMonkey/vfs-zip/unsafe%2bextension%3Ars?color=green&label=%23![forbid(unsafe_code)])](https://github.com/MaulingMonkey/vfs-zip/search?q=forbid%28unsafe_code%29+extension%3Ars)
 [![rust: 1.34.0+](https://img.shields.io/badge/rust-1.34.0%2B-yellow.svg)](https://gist.github.com/MaulingMonkey/c81a9f18811079f19326dac4daa5a359#minimum-supported-rust-versions-msrv)
 [![License](https://img.shields.io/crates/l/vfs-zip.svg)](https://github.com/MaulingMonkey/vfs-zip)
+[![Build Status](https://travis-ci.com/MaulingMonkey/vfs-zip.svg?branch=master)](https://travis-ci.com/MaulingMonkey/vfs-zip)
 <!-- [![dependency status](https://deps.rs/repo/github/MaulingMonkey/vfs-zip/status.svg)](https://deps.rs/repo/github/MaulingMonkey/vfs-zip) -->
 
 Currently this just bridges [vfs] and [zip].
