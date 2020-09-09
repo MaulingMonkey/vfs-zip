@@ -106,6 +106,7 @@ impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
 #[cfg(test)] mod tests {
     use super::*;
     use std::fs::File;
+    use std::sync::{Arc, Mutex};
 
     fn is_empty_or_comment(line: &str) -> bool {
         let line = line.trim_start_matches(char::is_whitespace);
@@ -113,12 +114,24 @@ impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
     }
 
     #[test] fn early_vfs_zip() {
-        let zip     = ZipReadOnly::new_strict(File::open("test/data/early-vfs-zip.zip").unwrap()).unwrap();
         let files   = std::fs::read_to_string("test/data/early-vfs-zip.files.txt").unwrap();
         let dirs    = std::fs::read_to_string("test/data/early-vfs-zip.dirs.txt").unwrap();
-        let files   = files.split(|ch| "\r\n".contains(ch)).filter(|l| !is_empty_or_comment(l));
-        let dirs    = dirs .split(|ch| "\r\n".contains(ch)).filter(|l| !is_empty_or_comment(l));
+        let files   = files.split(|ch| "\r\n".contains(ch)).filter(|l| !is_empty_or_comment(l)).collect::<Vec<_>>();
+        let dirs    = dirs .split(|ch| "\r\n".contains(ch)).filter(|l| !is_empty_or_comment(l)).collect::<Vec<_>>();
 
+        with_zip("File",            files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(File::open("test/data/early-vfs-zip.zip").unwrap()).unwrap());
+        with_zip("Mutex<File>",     files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(Mutex::new(File::open("test/data/early-vfs-zip.zip").unwrap())).unwrap());
+        with_zip("Vec<u8>",         files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(std::fs::read("test/data/early-vfs-zip.zip").unwrap()).unwrap());
+        with_zip("Arc<[u8]>",       files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(Arc::<[u8]>::from(std::fs::read("test/data/early-vfs-zip.zip").unwrap())).unwrap());
+        with_zip("Box<[u8]>",       files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(Box::<[u8]>::from(std::fs::read("test/data/early-vfs-zip.zip").unwrap())).unwrap());
+        with_zip("&'static [u8]",   files.iter().cloned(), dirs.iter().cloned(), &ZipReadOnly::new_strict(Box::leak(Box::<[u8]>::from(std::fs::read("test/data/early-vfs-zip.zip").unwrap()))).unwrap());
+        // XXX: vfs04::FileSystem demands 'static which outlives a &[u8] slice
+        let _ = ZipReadOnly::new_strict(&std::fs::read("test/data/early-vfs-zip.zip").unwrap()[..]).unwrap();
+    }
+
+    fn with_zip<'a>(src: &str, files: impl Iterator<Item = &'a str>, dirs: impl Iterator<Item = &'a str>, zip: &impl FileSystem) {
+        eprintln!("{}", src);
+        eprintln!("{:=<1$}", "", src.len());
         for file in files {
             for good in &[
                 format!("{}", file),
@@ -181,3 +194,4 @@ impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
         }
     }
 }
+

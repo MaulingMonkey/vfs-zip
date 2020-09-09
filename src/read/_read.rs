@@ -9,7 +9,7 @@ use std::convert::*;
 use std::fmt::{self, Debug, Formatter};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::*;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 
 
@@ -63,7 +63,31 @@ impl ReadAtLen for Vec<u8> {
     }
 }
 
+impl ReadAtLen for Arc<[u8]> {
+    type ReadAt = SeeklessBlob<Arc<[u8]>>;
+    fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)> {
+        let len = self.as_ref().len() as u64;
+        Ok((SeeklessBlob(self), len))
+    }
+}
+
+impl ReadAtLen for Box<[u8]> {
+    type ReadAt = SeeklessBlob<Box<[u8]>>;
+    fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)> {
+        let len = self.as_ref().len() as u64;
+        Ok((SeeklessBlob(self), len))
+    }
+}
+
 impl<'s> ReadAtLen for &'s [u8] {
+    type ReadAt = SeeklessBlob<&'s [u8]>;
+    fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)> {
+        let len = self.len() as u64;
+        Ok((SeeklessBlob(self), len))
+    }
+}
+
+impl<'s> ReadAtLen for &'s mut [u8] {
     type ReadAt = SeeklessBlob<&'s [u8]>;
     fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)> {
         let len = self.len() as u64;
