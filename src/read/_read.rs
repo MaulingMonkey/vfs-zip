@@ -28,7 +28,7 @@ pub trait ReadAtLen {
     fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)>;
 }
 
-#[cfg(any(unix, windows))]
+#[cfg(any(target_os = "redox", unix, target_os = "vxworks", target_os = "hermit", windows))]
 impl ReadAtLen for std::fs::File {
     type ReadAt = SeeklessFile;
     fn into_read_at_len(mut self) -> io::Result<(Self::ReadAt, u64)> {
@@ -37,7 +37,7 @@ impl ReadAtLen for std::fs::File {
     }
 }
 
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(any(target_os = "redox", unix, target_os = "vxworks", target_os = "hermit", windows)))]
 impl ReadAtLen for std::fs::File {
     type ReadAt = Mutex<Self>;
     fn into_read_at_len(self) -> io::Result<(Self::ReadAt, u64)> {
@@ -160,7 +160,7 @@ impl<IO: ReadAt> ZipReadOnly<IO> {
 #[doc(hidden)]
 pub struct SeeklessFile(std::fs::File);
 
-#[cfg(unix)] impl ReadAt for SeeklessFile {
+#[cfg(any(target_os = "redox", unix, target_os = "vxworks", target_os = "hermit"))] impl ReadAt for SeeklessFile {
     fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> { self.0.read_at(buf, offset) }
     fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> { self.0.read_exact_at(buf, offset) }
 }
