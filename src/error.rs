@@ -14,6 +14,21 @@ impl Display for Error { fn fmt(&self, fmt: &mut Formatter) -> fmt::Result { Dis
 impl std::error::Error for Error {}
 impl Error {
     pub(crate) fn unsupported(s: &'static str) -> Self { Self(ZipError::UnsupportedArchive(s)) }
+    pub(crate) fn io(io: std::io::Error) -> Self { Self(ZipError::Io(io)) }
+}
+
+#[cfg(feature = "vfs04")]
+pub(crate) fn zip2vfs(path: &str, e: ZipError) -> vfs04::VfsError {
+    use vfs04::VfsError;
+    use std::io::{Error as IoError, ErrorKind::InvalidData};
+
+    match e {
+        ZipError::FileNotFound          => VfsError::FileNotFound { path: path.into() },
+        ZipError::Io(e)                 => VfsError::IoError(e),
+        ZipError::InvalidArchive(e)     => VfsError::IoError(IoError::new(InvalidData, e)),
+        ZipError::UnsupportedArchive(e) => VfsError::IoError(IoError::new(InvalidData, e)),
+        other                           => VfsError::Other { message: other.to_string() },
+    }
 }
 
 

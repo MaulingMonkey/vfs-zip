@@ -1,8 +1,10 @@
-use super::*;
-use ::vfs04::*;
-use std::io::Write;
+use crate::{error, ZipReadOnly};
+use vfs04::*;
+use read_write_at::ReadAt;
+use std::convert::*;
+use std::io::{self, Read, Write};
 
-impl<IO: Read + Seek + Send + 'static> ZipReadOnly<IO> {
+impl<IO: ReadAt> ZipReadOnly<IO> {
     fn normalize_file<'s>(&self, orig: &'s str) -> VfsResult<&'s str> {
         if orig.contains('\\') || orig.ends_with('/') {
             return Err(VfsError::InvalidPath { path: orig.into() }); // Invalid path for file
@@ -25,7 +27,7 @@ impl<IO: Read + Seek + Send + 'static> ZipReadOnly<IO> {
     }
 }
 
-impl<IO: Read + Seek + Send + 'static> FileSystem for ZipReadOnly<IO> {
+impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
     fn read_dir(&self, orig: &str) -> VfsResult<Box<dyn Iterator<Item = String>>> {
         let path = self.normalize_path_dir(orig)?.0;
         if let Some(dir) = self.dirs.get(path) {
@@ -39,12 +41,31 @@ impl<IO: Read + Seek + Send + 'static> FileSystem for ZipReadOnly<IO> {
 
     fn open_file(&self, orig: &str) -> VfsResult<Box<dyn SeekAndRead>> {
         let path = self.normalize_file(orig)?;
-        if let Some(i) = self.files.get(path) {
-            // ZipReadOnly doesn't allow us to access/read multiple ZipFile s at a time.
-            // To play nicely with `vfs`, we sadly need to read the whole thing into memory before returning.
-            let mut buf = Vec::new();
-            self.archive.lock().unwrap().by_index(*i).unwrap().read_to_end(&mut buf)?;
-            Ok(Box::new(std::io::Cursor::new(buf)))
+        if let Some(e) = self.files.get(path) {
+            use io::ErrorKind::InvalidData;
+
+            // Header + Compressed blob
+            let hacn = e.compressed.checked_add(e.header_size).and_then(|n| n.try_into().ok()).ok_or_else(||
+                VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read compressed file entry into memory, but it is too large"))
+            )?;
+
+            let mut hac = Vec::new();
+            hac.resize(hacn, 0);
+            self.io.read_exact_at(&mut hac[..], e.header_offset)?;
+            let mut hac = std::io::Cursor::new(hac);
+
+            // Uncompressed blob
+            let uncn = e.uncompressed.try_into().map_err(|_|
+                VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read decompressed file entry into memory, but it is too large"))
+            )?;
+            let mut unc = Vec::new();
+            unc.resize(uncn, 0);
+            let mut zf = zip::read::read_zipfile_from_stream(&mut hac).map_err(|e| error::zip2vfs(&path, e))?.ok_or_else(||
+                VfsError::IoError(io::Error::new(InvalidData, "expected a file entry, did file contents change underneath this reader?!?"))
+            )?;
+            zf.read_exact(&mut unc[..])?;
+
+            Ok(Box::new(std::io::Cursor::new(unc)))
         } else if let Some(_) = self.dirs.get(path) {
             Err(VfsError::Other { message: format!("\"{}\" is a directory, not a file", orig) })
         } else {
@@ -54,8 +75,8 @@ impl<IO: Read + Seek + Send + 'static> FileSystem for ZipReadOnly<IO> {
 
     fn metadata(&self, orig: &str) -> VfsResult<VfsMetadata> {
         let (path, dir) = self.normalize_path_dir(orig)?;
-        if let Some(i) = self.files.get(path).filter(|_| !dir) {
-            Ok(VfsMetadata { file_type: VfsFileType::File, len: self.archive.lock().unwrap().by_index(*i).map(|f| f.size()).unwrap_or(0) })
+        if let Some(e) = self.files.get(path).filter(|_| !dir) {
+            Ok(VfsMetadata { file_type: VfsFileType::File, len: e.uncompressed })
         } else if let Some(_) = self.dirs.get(path) {
             Ok(VfsMetadata { file_type: VfsFileType::Directory, len: 0 })
         } else {
