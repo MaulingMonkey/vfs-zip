@@ -2,7 +2,7 @@
 #![cfg_attr(external_doc, doc(include = "../Readme.md"))]
 #![cfg_attr(external_doc, warn(missing_docs))]
 #![forbid(unsafe_code)]
-#![cfg_attr(not(feature = "vfs04"), allow(dead_code))]
+#![cfg_attr(not(feature = "vfs04"), allow(dead_code, unused_imports))]
 
 mod error; pub use error::*;
 #[path = "read/_read.rs"]   mod read;   pub use read::*;

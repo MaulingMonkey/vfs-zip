@@ -1,5 +1,5 @@
 use crate::{Error, Result};
-use super::{ReadAtCursor, ReadAtLen};
+use super::{ReadAtCursor, ReadAtRef, IntoCloneReadAtLen};
 
 use read_write_at::ReadAt;
 
@@ -22,6 +22,7 @@ pub(super) struct FileEntry {
     pub header_size:    u64,
     pub compressed:     u64,
     pub uncompressed:   u64,
+    pub compression:    zip::CompressionMethod,
 }
 
 impl<IO: ReadAt> Debug for ZipReadOnly<IO> {
@@ -30,24 +31,24 @@ impl<IO: ReadAt> Debug for ZipReadOnly<IO> {
     }
 }
 
-impl<IO: ReadAt> ZipReadOnly<IO> {
+impl<IO: Clone + ReadAt> ZipReadOnly<IO> {
     /// Create a new read-only zip filesystem.
     /// Any archive errors (including unsupported paths) will result in errors.
-    pub fn new_strict(ral: impl ReadAtLen<ReadAt = IO>) -> Result<Self> { Self::new_impl(ral, false) }
+    pub fn new_strict(cral: impl IntoCloneReadAtLen<ReadAt = IO>) -> Result<Self> { Self::new_impl(cral, false) }
 
     /// Create a new read-only zip filesystem.
     /// Some archive errors (such as unsupported paths) will be ignored.
-    pub fn new_relaxed(ral: impl ReadAtLen<ReadAt = IO>) -> Result<Self> { Self::new_impl(ral, true) }
+    pub fn new_relaxed(cral: impl IntoCloneReadAtLen<ReadAt = IO>) -> Result<Self> { Self::new_impl(cral, true) }
 
-    fn new_impl(ral: impl ReadAtLen<ReadAt = IO>, ignore_file_errors: bool) -> Result<Self> {
-        let (ra, len) = ral.into_read_at_len().map_err(Error::io)?;
+    fn new_impl(cral: impl IntoCloneReadAtLen<ReadAt = IO>, ignore_file_errors: bool) -> Result<Self> {
+        let (cra, len) = cral.into_read_at_len().map_err(Error::io)?;
         let mut zro = Self {
-            io: ra,
+            io: cra,
             files:  Default::default(),
             dirs:   Default::default(),
         };
 
-        let mut archive = zip::read::ZipArchive::new(ReadAtCursor::new(&zro.io, len)).map_err(Error)?;
+        let mut archive = zip::read::ZipArchive::new(ReadAtCursor::new(ReadAtRef(&zro.io), len)).map_err(Error)?;
         zro.dirs.insert(String::new(), Default::default()); // always have a root directory
 
         'files: for i in 0..archive.len() {
@@ -66,6 +67,7 @@ impl<IO: ReadAt> ZipReadOnly<IO> {
                     header_size:    entry.data_start() - entry.header_start(),
                     compressed:     entry.compressed_size(),
                     uncompressed:   entry.size(),
+                    compression:    entry.compression(),
                 };
                 if zro.files.insert(abs.into(), entry).is_some() { continue 'files; } // already inserted
             } else if entry.is_dir() {

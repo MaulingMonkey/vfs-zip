@@ -1,8 +1,20 @@
-use crate::{error, ZipReadOnly};
+use crate::{error, ReadRange, ReadAtCursor, ZipReadOnly};
 use vfs04::*;
 use read_write_at::ReadAt;
 use std::convert::*;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
+
+const KB : u64 = 1024;
+const MB : u64 = 1024 * KB;
+const GB : u64 = 1024 * MB;
+
+// TODO: Make all this configurable per-fs
+
+/// Above this file size, attempt to decompress files straight from disk instead of copying them into memory first.
+const LIMIT_PREFER_IN_MEMORY : u64 = 1*KB;
+
+/// Above this file size, fail to read the file if it would require reading into memory first.
+const LIMIT_ALLOW_IN_MEMORY : u64 = 1*GB;
 
 impl<IO: ReadAt> ZipReadOnly<IO> {
     fn normalize_file<'s>(&self, orig: &'s str) -> VfsResult<&'s str> {
@@ -27,7 +39,7 @@ impl<IO: ReadAt> ZipReadOnly<IO> {
     }
 }
 
-impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
+impl<IO: Clone + ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
     fn read_dir(&self, orig: &str) -> VfsResult<Box<dyn Iterator<Item = String>>> {
         let path = self.normalize_path_dir(orig)?.0;
         if let Some(dir) = self.dirs.get(path) {
@@ -42,30 +54,75 @@ impl<IO: ReadAt + Send + Sync + 'static> FileSystem for ZipReadOnly<IO> {
     fn open_file(&self, orig: &str) -> VfsResult<Box<dyn SeekAndRead>> {
         let path = self.normalize_file(orig)?;
         if let Some(e) = self.files.get(path) {
-            use io::ErrorKind::InvalidData;
+            if e.compression == zip::CompressionMethod::Stored && e.compressed != e.uncompressed {
+                return Err(VfsError::IoError(io::Error::new(io::ErrorKind::InvalidData, "Supposedly uncompressed file has different compressed vs uncompressed sizes")));
+            }
 
-            // Header + Compressed blob
-            let hacn = e.compressed.checked_add(e.header_size).and_then(|n| n.try_into().ok()).ok_or_else(||
-                VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read compressed file entry into memory, but it is too large"))
-            )?;
+            let compressed_start    = e.header_offset + e.header_size;
+            let compressed_end      = e.compressed + compressed_start;
+            let compressed          = compressed_start .. compressed_end;
 
-            let mut hac = Vec::new();
-            hac.resize(hacn, 0);
-            self.io.read_exact_at(&mut hac[..], e.header_offset)?;
-            let mut hac = std::io::Cursor::new(hac);
+            match e.compression {
+                zip::CompressionMethod::Stored if e.uncompressed <= LIMIT_PREFER_IN_MEMORY => {
+                    // Read decompressed data directly into a memory blob without an extra "compressed" copy
+                    // TODO: CRC32 check?
 
-            // Uncompressed blob
-            let uncn = e.uncompressed.try_into().map_err(|_|
-                VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read decompressed file entry into memory, but it is too large"))
-            )?;
-            let mut unc = Vec::new();
-            unc.resize(uncn, 0);
-            let mut zf = zip::read::read_zipfile_from_stream(&mut hac).map_err(|e| error::zip2vfs(&path, e))?.ok_or_else(||
-                VfsError::IoError(io::Error::new(InvalidData, "expected a file entry, did file contents change underneath this reader?!?"))
-            )?;
-            zf.read_exact(&mut unc[..])?;
+                    let unc = e.uncompressed as usize; // e.uncompressed <= LIMIT_PREFER_IN_MEMORY <= std::usize::MAX
+                    let mut unc = vec![0; unc];
+                    self.io.read_exact_at(&mut unc[..], compressed_start)?;
+                    Ok(Box::new(std::io::Cursor::new(unc)))
+                },
+                zip::CompressionMethod::Stored => {
+                    // Read decompressed data directly from disk
+                    // TODO: CRC32 check at EOF if read linearly?
 
-            Ok(Box::new(std::io::Cursor::new(unc)))
+                    let rac = ReadAtCursor::new(self.io.clone(), std::u64::MAX);
+                    let rr = ReadRange::new(rac, compressed);
+                    Ok(Box::new(rr))
+                },
+                #[cfg(feature = "zip-deflate")] zip::CompressionMethod::Deflated if e.uncompressed > LIMIT_PREFER_IN_MEMORY => {
+                    use flate2::read::DeflateDecoder;
+                    struct Deflate<IO: Clone + ReadAt>(DeflateDecoder<ReadRange<ReadAtCursor<IO>>>);
+                    impl<IO: Clone + ReadAt> Read for Deflate<IO> { fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) } }
+                    impl<IO: Clone + ReadAt> Seek for Deflate<IO> { fn seek(&mut self, _: SeekFrom) -> io::Result<u64> { Err(io::Error::new(io::ErrorKind::Other, "Cannot seek within a deflate stream")) } }
+                    Ok(Box::new(Deflate(DeflateDecoder::new(ReadRange::new(ReadAtCursor::new(self.io.clone(), std::u64::MAX), compressed)))))
+                },
+                #[cfg(feature = "zip-bzip2")] zip::CompressionMethod::Bzip2 if e.uncompressed > LIMIT_PREFER_IN_MEMORY => {
+                    use bzip2::read::BzDecoder;
+                    struct Bz<IO: Clone + ReadAt>(BzDecoder<ReadRange<ReadAtCursor<IO>>>);
+                    impl<IO: Clone + ReadAt> Read for Bz<IO> { fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) } }
+                    impl<IO: Clone + ReadAt> Seek for Bz<IO> { fn seek(&mut self, _: SeekFrom) -> io::Result<u64> { Err(io::Error::new(io::ErrorKind::Other, "Cannot seek within a deflate stream")) } }
+                    Ok(Box::new(Bz(BzDecoder::new(ReadRange::new(ReadAtCursor::new(self.io.clone(), std::u64::MAX), compressed)))))
+                },
+                _ if e.compressed   >= LIMIT_ALLOW_IN_MEMORY => Err(VfsError::Other { message: "compressed file exceeds LIMIT_ALLOW_IN_MEMORY but streaming this compression type from disk is not supported".into() }),
+                _ if e.uncompressed >= LIMIT_ALLOW_IN_MEMORY => Err(VfsError::Other { message: "uncompressed file exceeds LIMIT_ALLOW_IN_MEMORY but streaming this compression type from disk is not supported".into() }),
+                _ => { // Fallback: read compressed blob entirely into memory, and then decompressed blob into memory, and then return that.
+                    use io::ErrorKind::InvalidData;
+
+                    // Header + Compressed blob
+                    let hacn = e.compressed.checked_add(e.header_size).and_then(|n| n.try_into().ok()).ok_or_else(||
+                        VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read compressed file entry into memory, but it is too large"))
+                    )?;
+
+                    let mut hac = Vec::new();
+                    hac.resize(hacn, 0);
+                    self.io.read_exact_at(&mut hac[..], e.header_offset)?;
+                    let mut hac = std::io::Cursor::new(hac);
+
+                    // Uncompressed blob
+                    let uncn = e.uncompressed.try_into().map_err(|_|
+                        VfsError::IoError(io::Error::new(InvalidData, "vfs-zip must read decompressed file entry into memory, but it is too large"))
+                    )?;
+                    let mut unc = Vec::new();
+                    unc.resize(uncn, 0);
+                    let mut zf = zip::read::read_zipfile_from_stream(&mut hac).map_err(|e| error::zip2vfs(&path, e))?.ok_or_else(||
+                        VfsError::IoError(io::Error::new(InvalidData, "expected a file entry, did file contents change underneath this reader?!?"))
+                    )?;
+                    zf.read_exact(&mut unc[..])?;
+
+                    Ok(Box::new(std::io::Cursor::new(unc)))
+                }
+            }
         } else if let Some(_) = self.dirs.get(path) {
             Err(VfsError::Other { message: format!("\"{}\" is a directory, not a file", orig) })
         } else {

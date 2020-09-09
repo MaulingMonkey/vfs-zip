@@ -1,6 +1,7 @@
 //use std::convert::From;
 use std::io::{self, Error, ErrorKind, SeekFrom};
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct AbsSeekPos(pub u64);
 
 impl AbsSeekPos {
